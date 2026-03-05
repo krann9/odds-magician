@@ -77,12 +77,13 @@ function initChart() {
           grid: { color: '#1e2d45', drawBorder: false },
         },
         y: {
-          min: 0.4,
-          max: 1.5,
+          min: 0.6,
+          max: 1.4,
           ticks: {
             color: '#7a8fa8',
             font: { family: "'SF Mono', monospace", size: 10 },
-            callback: (v) => v.toFixed(2) + 'x',
+            stepSize: 0.1,
+            callback: (v) => v.toFixed(1) + 'x',
           },
           grid: { color: '#1e2d45', drawBorder: false },
         },
