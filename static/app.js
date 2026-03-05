@@ -368,6 +368,9 @@ async function refresh() {
 
   setPollDot('ok');
   setFooterStatus(`Last refresh: ${new Date().toLocaleTimeString()}`);
+
+  // Keep the EV widget in sync with latest data
+  refreshEVWidget();
 }
 
 // ─── Manual poll ─────────────────────────────────────────────────────────────
@@ -393,6 +396,50 @@ async function triggerPoll() {
     btn.disabled = false;
     btn.textContent = '↻ Poll Now';
   }
+}
+
+// ─── All-Packs EV Widget ──────────────────────────────────────────────────────
+
+const PACK_SHORT = {
+  'pkmn-basic-pack':   { name: 'Basic',   price: '$10'  },
+  'pkmn-starter-pack': { name: 'Starter', price: '$25'  },
+  'pkmn-pro-pack':     { name: 'Pro',     price: '$50'  },
+  'pkmn-master-pack':  { name: 'Master',  price: '$100' },
+};
+
+async function refreshEVWidget() {
+  const packs = await fetchJSON('/api/packs');
+  const body = document.getElementById('evWidgetBody');
+  if (!packs || !body) return;
+
+  const rowsHtml = packs.map((pack) => {
+    const meta = PACK_SHORT[pack.id] || { name: pack.id, price: '' };
+    const ratio = pack.ev?.ev_ratio;
+    const hasData = ratio != null;
+    const isPos = hasData && ratio >= 1.0;
+    const ratioStr = hasData ? ratio.toFixed(4) + 'x' : '—';
+    const arrow = hasData ? (isPos ? ' ▲' : ' ▼') : '';
+    const ratioClass = hasData ? (isPos ? 'positive' : 'negative') : 'no-data';
+    const activeClass = pack.id === currentPack ? ' ev-row-active' : '';
+
+    return `
+      <div class="ev-widget-row${activeClass}" onclick="switchToPack('${pack.id}')">
+        <span class="ev-widget-name">${meta.name}</span>
+        <span class="ev-widget-price">${meta.price}</span>
+        <span class="ev-widget-ratio ${ratioClass}">${ratioStr}${arrow}</span>
+      </div>`;
+  }).join('');
+
+  const updatedHtml = `<div class="ev-widget-updated">↻ ${new Date().toLocaleTimeString()}</div>`;
+  body.innerHTML = rowsHtml + updatedHtml;
+}
+
+function switchToPack(packId) {
+  const select = document.getElementById('packSelect');
+  if (select) select.value = packId;
+  currentPack = packId;
+  knownPullIds.clear();
+  refresh();
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -479,6 +526,15 @@ document.addEventListener('DOMContentLoaded', () => {
     currentPack = e.target.value;
     knownPullIds.clear();
     refresh();
+  });
+
+  // EV widget collapse toggle
+  document.getElementById('evWidgetToggle')?.addEventListener('click', () => {
+    const body = document.getElementById('evWidgetBody');
+    const btn = document.getElementById('evWidgetToggle');
+    if (!body || !btn) return;
+    const collapsed = body.classList.toggle('collapsed');
+    btn.textContent = collapsed ? '+' : '−';
   });
 
   // Timeframe buttons
