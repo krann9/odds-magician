@@ -4,7 +4,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 const API = '';                  // same-origin backend
-const REFRESH_MS = 30_000;       // UI refresh interval
+const REFRESH_MS = 15_000;       // UI refresh interval
 
 // Timeframe → number of 60s poll snapshots to request
 const TIMEFRAMES = {
