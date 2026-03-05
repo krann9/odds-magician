@@ -196,7 +196,7 @@ def get_ev(pack_id):
 
 @app.route('/api/packs/<pack_id>/ev/history')
 def get_ev_history(pack_id):
-    limit = request.args.get('limit', 500, type=int)
+    limit = request.args.get('limit', 100_000, type=int)
     return jsonify(db.get_ev_history(pack_id, limit))
 
 

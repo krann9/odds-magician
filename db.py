@@ -142,7 +142,7 @@ def get_latest_ev(pack_id):
         conn.close()
 
 
-def get_ev_history(pack_id, limit=500):
+def get_ev_history(pack_id, limit=100_000):
     conn = get_conn()
     try:
         c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
