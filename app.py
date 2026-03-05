@@ -9,7 +9,6 @@ import os
 from datetime import datetime, timezone
 
 import requests
-from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
@@ -151,7 +150,10 @@ CORS(app)
 
 # On Vercel, __main__ never runs — init DB here on cold start
 if os.environ.get('DATABASE_URL'):
-    db.init_db()
+    try:
+        db.init_db()
+    except Exception as _e:
+        logging.getLogger('odds_magician').warning(f'DB init skipped: {_e}')
 
 
 @app.route('/')
@@ -230,10 +232,11 @@ def get_odds(pack_id):
 
 
 # Poll trigger — called by external cron (cron-job.org) or Poll Now button
+# Accepts GET (health-check / cron-job.org test ping) and POST (with optional pack_id body)
 # Runs synchronously so Vercel doesn't freeze the function before completion
-@app.route('/api/poll', methods=['POST'])
+@app.route('/api/poll', methods=['GET', 'POST'])
 def trigger_poll():
-    pack_id = request.json.get('pack_id') if request.json else None
+    pack_id = (request.json or {}).get('pack_id') if request.is_json else None
     if pack_id and pack_id in TRACKED_PACKS:
         poll_pack(pack_id)
     else:
@@ -244,6 +247,8 @@ def trigger_poll():
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
+    from apscheduler.schedulers.background import BackgroundScheduler  # local dev only
+
     db.init_db()
     logger.info('Database initialised.')
 
