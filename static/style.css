@@ -529,15 +529,9 @@ html, body {
 
 /* ─── All-Packs EV Widget ────────────────────────────────── */
 .ev-widget {
-  position: fixed;
-  top: 82px;
-  right: 12px;
-  width: 200px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-lit);
-  border-radius: var(--radius);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.7), 0 0 0 1px rgba(59,130,246,0.08);
-  z-index: 90;
+  /* Embedded at the top of .panel-odds — inherits full panel width (340px) */
+  flex-shrink: 0;
+  border-bottom: 2px solid var(--border);
   overflow: hidden;
 }
 

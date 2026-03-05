@@ -78,8 +78,21 @@
       </div>
     </section>
 
-    <!-- Calibration / Odds Buckets -->
+    <!-- Calibration / Odds Buckets (with Live EV Ratio widget at top) -->
     <section class="panel panel-odds">
+
+      <!-- Live EV Ratio widget — always visible at top of right panel -->
+      <div id="evWidget" class="ev-widget">
+        <div class="ev-widget-header">
+          <span class="ev-widget-title">LIVE EV RATIO</span>
+          <button class="ev-widget-toggle" id="evWidgetToggle" title="Collapse">−</button>
+        </div>
+        <div id="evWidgetBody" class="ev-widget-body">
+          <div class="ev-widget-loading">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Calibrated Odds sits below the widget -->
       <div class="panel-header">
         <span class="panel-title">CALIBRATED ODDS</span>
         <span class="panel-hint" id="oddsTimestamp">—</span>
@@ -87,6 +100,7 @@
       <div id="bucketsContainer" class="buckets-container">
         <div class="loading-msg">Loading calibration data…</div>
       </div>
+
     </section>
 
     <!-- Recent Pulls -->
@@ -108,18 +122,6 @@
     <span id="footerStatus" class="footer-status">Initialising…</span>
   </footer>
 
-  <!-- ═══ ALL-PACKS EV WIDGET ════════════════════════════════════════════ -->
-  <div id="evWidget" class="ev-widget">
-    <div class="ev-widget-header">
-      <span class="ev-widget-title">📊 ALL PACKS EV</span>
-      <button class="ev-widget-toggle" id="evWidgetToggle" title="Collapse">−</button>
-    </div>
-    <div id="evWidgetBody" class="ev-widget-body">
-      <!-- rows injected by JS -->
-      <div class="ev-widget-loading">Loading…</div>
-    </div>
-  </div>
-
-  <script src="app.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
