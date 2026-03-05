@@ -372,6 +372,7 @@ async function refresh() {
 
   // Keep the EV widget in sync with latest data
   refreshEVWidget();
+  refreshDroughtWidget();
 }
 
 // ─── Manual poll ─────────────────────────────────────────────────────────────
@@ -433,6 +434,44 @@ async function refreshEVWidget() {
 
   const updatedHtml = `<div class="ev-widget-updated">↻ ${new Date().toLocaleTimeString()}</div>`;
   body.innerHTML = rowsHtml + updatedHtml;
+}
+
+// ─── Drought Tracker Widget ───────────────────────────────────────────────────
+
+function droughtCount(n) {
+  if (n === null || n === undefined) {
+    return '<span class="drought-count nodata">—</span>';
+  }
+  // Colour thresholds: fresh 0-9 | medium 10-29 | dry 30+
+  const cls = n >= 30 ? 'dry' : n >= 10 ? 'medium' : 'fresh';
+  return `<span class="drought-count ${cls}">${n}</span>`;
+}
+
+async function refreshDroughtWidget() {
+  const data = await fetchJSON('/api/drought');
+  const body = document.getElementById('droughtWidgetBody');
+  if (!data || !body) return;
+
+  const headerHtml = `
+    <div class="drought-col-headers">
+      <span class="drought-col-pack"></span>
+      <span class="drought-col-count">RARE</span>
+      <span class="drought-col-count">CHASE</span>
+    </div>`;
+
+  const rowsHtml = Object.entries(PACK_SHORT).map(([packId, meta]) => {
+    const d = data[packId] || {};
+    return `
+      <div class="drought-row">
+        <span class="drought-pack-name">
+          ${meta.name}<span class="drought-pack-price">${meta.price}</span>
+        </span>
+        ${droughtCount(d.rare)}
+        ${droughtCount(d.chase)}
+      </div>`;
+  }).join('');
+
+  body.innerHTML = headerHtml + rowsHtml;
 }
 
 function switchToPack(packId) {
@@ -533,6 +572,15 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('evWidgetToggle')?.addEventListener('click', () => {
     const body = document.getElementById('evWidgetBody');
     const btn = document.getElementById('evWidgetToggle');
+    if (!body || !btn) return;
+    const collapsed = body.classList.toggle('collapsed');
+    btn.textContent = collapsed ? '+' : '−';
+  });
+
+  // Drought widget collapse toggle
+  document.getElementById('droughtWidgetToggle')?.addEventListener('click', () => {
+    const body = document.getElementById('droughtWidgetBody');
+    const btn = document.getElementById('droughtWidgetToggle');
     if (!body || !btn) return;
     const collapsed = body.classList.toggle('collapsed');
     btn.textContent = collapsed ? '+' : '−';

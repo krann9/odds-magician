@@ -206,3 +206,45 @@ def get_pull_count(pack_id):
         return c.fetchone()[0]
     finally:
         conn.close()
+
+
+def pulls_since_last_tier(pack_id: str, fmv_ranges: list[tuple]) -> int | None:
+    """
+    Count how many pulls occurred after the most recent pull whose FMV falls
+    within any of the given (lo, hi) ranges (inclusive).
+
+    Returns None if that tier has never been pulled, else an int (0 = last pull
+    was that tier, n = n pulls have happened since).
+    """
+    if not fmv_ranges:
+        return None
+    conn = get_conn()
+    try:
+        c = conn.cursor()
+
+        # Build fully-parameterised range conditions
+        conditions = ' OR '.join(
+            '(fmv_usd >= %s AND fmv_usd <= %s)' for _ in fmv_ranges
+        )
+        range_params = [v for lo, hi in fmv_ranges for v in (lo, hi)]
+
+        # Find the tx_time of the most recent qualifying pull
+        c.execute(
+            f'SELECT tx_time FROM pulls WHERE pack_id = %s AND ({conditions}) '
+            f'ORDER BY tx_time DESC LIMIT 1',
+            [pack_id] + range_params,
+        )
+        row = c.fetchone()
+        if not row or not row[0]:
+            return None  # tier never pulled
+
+        last_time = row[0]
+
+        # Count pulls strictly newer than that timestamp
+        c.execute(
+            'SELECT COUNT(*) FROM pulls WHERE pack_id = %s AND tx_time > %s',
+            (pack_id, last_time),
+        )
+        return c.fetchone()[0]
+    finally:
+        conn.close()

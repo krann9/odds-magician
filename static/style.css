@@ -638,6 +638,70 @@ html, body {
 .ev-widget-ratio.negative { color: var(--red); }
 .ev-widget-ratio.no-data  { color: var(--text-dim); }
 
+/* ─── Drought Tracker Widget ─────────────────────────────── */
+.drought-col-headers {
+  display: flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,0.15);
+}
+
+.drought-col-pack {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+}
+
+.drought-col-count {
+  flex: 0 0 56px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  text-align: right;
+}
+
+.drought-row {
+  display: flex;
+  align-items: center;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.drought-row:last-child { border-bottom: none; }
+.drought-row:hover { background: var(--bg-hover); }
+
+.drought-pack-name {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.drought-pack-price {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-left: 4px;
+}
+
+.drought-count {
+  flex: 0 0 56px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+.drought-count.fresh  { color: var(--green); }
+.drought-count.medium { color: var(--gold); }
+.drought-count.dry    { color: var(--red); }
+.drought-count.nodata { color: var(--text-dim); font-size: 13px; }
+
 .ev-widget-updated {
   padding: 5px 10px;
   font-size: 10px;

@@ -231,6 +231,47 @@ def get_odds(pack_id):
     })
 
 
+@app.route('/api/drought')
+def get_drought():
+    """
+    For each tracked pack: how many pulls have occurred since the last
+    rare pull and since the last chase pull.
+
+    Tier FMV ranges are read from the pack's latest odds snapshot so they
+    scale correctly per pack.  Falls back to sensible fixed thresholds for
+    packs that don't publish odds.
+    """
+    result = {}
+    for pack_id in TRACKED_PACKS:
+        odds_row = db.get_latest_odds(pack_id)
+        raw_buckets = []
+        if odds_row:
+            raw_buckets = json.loads(odds_row['buckets_json']).get('buckets', [])
+
+        # Pull FMV ranges by tier from the pack's own odds definition
+        rare_ranges = [
+            (b['minValueUsd'], b['maxValueUsd'])
+            for b in raw_buckets if b.get('tier') == 'rare'
+        ]
+        chase_ranges = [
+            (b['minValueUsd'], b['maxValueUsd'])
+            for b in raw_buckets if b.get('tier') in ('chase', 'epic')
+        ]
+
+        # Fallback thresholds for packs with no published odds
+        if not rare_ranges:
+            rare_ranges = [(50.0, 100.0)]
+        if not chase_ranges:
+            chase_ranges = [(100.0, 99_999.0)]
+
+        result[pack_id] = {
+            'rare':  db.pulls_since_last_tier(pack_id, rare_ranges),
+            'chase': db.pulls_since_last_tier(pack_id, chase_ranges),
+        }
+
+    return jsonify(result)
+
+
 # Poll trigger — called by external cron (cron-job.org) or Poll Now button
 # Accepts GET (health-check / cron-job.org test ping) and POST (with optional pack_id body)
 # Runs synchronously so Vercel doesn't freeze the function before completion
