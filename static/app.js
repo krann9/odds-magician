@@ -442,8 +442,8 @@ function droughtCount(n) {
   if (n === null || n === undefined) {
     return '<span class="drought-count nodata">—</span>';
   }
-  // Colour thresholds: fresh 0-9 | medium 10-29 | dry 30+
-  const cls = n >= 30 ? 'dry' : n >= 10 ? 'medium' : 'fresh';
+  // 0-80 red (recent, not due yet) | 81-100 yellow (getting close) | 100+ green (overdue)
+  const cls = n >= 100 ? 'fresh' : n >= 81 ? 'medium' : 'dry';
   return `<span class="drought-count ${cls}">${n}</span>`;
 }
 
