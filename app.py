@@ -43,7 +43,7 @@ REQUEST_HEADERS = {
 }
 
 # Tracking Pokémon Starter ($25) and Pro ($50) packs
-TRACKED_PACKS = ['pkmn-basic-pack', 'pkmn-starter-pack', 'pkmn-pro-pack']
+TRACKED_PACKS = ['pkmn-basic-pack', 'pkmn-starter-pack', 'pkmn-pro-pack', 'pkmn-master-pack']
 
 # Phase 2 (add more packs here):
 # TRACKED_PACKS = [
