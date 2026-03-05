@@ -10,7 +10,10 @@ __pycache__/
 venv/
 env/
 
-# Database (local only — Railway uses ephemeral storage)
+# Environment variables (never commit secrets)
+.env
+
+# Database (local only)
 *.db
 *.sqlite
 *.sqlite3

@@ -1,15 +1,28 @@
-import sqlite3
 import json
 import os
+from datetime import datetime
 
-DB_PATH = os.path.join(os.path.dirname(__file__), 'odds_magician.db')
+import psycopg2
+import psycopg2.extras
+
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
 
 def get_conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
+    conn = psycopg2.connect(DATABASE_URL)
     return conn
+
+
+def _to_iso(val):
+    """Convert a datetime object to ISO string, leave strings as-is."""
+    if isinstance(val, datetime):
+        return val.isoformat()
+    return val
+
+
+def _serialize(row: dict) -> dict:
+    """Convert any datetime values in a row dict to ISO strings."""
+    return {k: _to_iso(v) for k, v in row.items()}
 
 
 def init_db():
@@ -17,35 +30,35 @@ def init_db():
     c = conn.cursor()
 
     c.execute('''CREATE TABLE IF NOT EXISTS pulls (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         pack_id TEXT NOT NULL,
         collectible_id TEXT NOT NULL,
         title TEXT,
         fmv_usd REAL NOT NULL,
         tx_time TEXT,
         image_url TEXT,
-        created_at TEXT DEFAULT (datetime('now')),
+        created_at TIMESTAMP DEFAULT NOW(),
         UNIQUE(pack_id, collectible_id)
     )''')
 
     c.execute('''CREATE TABLE IF NOT EXISTS odds_snapshots (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         pack_id TEXT NOT NULL,
         pack_title TEXT,
         price REAL,
         buckets_json TEXT NOT NULL,
-        created_at TEXT DEFAULT (datetime('now'))
+        created_at TIMESTAMP DEFAULT NOW()
     )''')
 
     c.execute('''CREATE TABLE IF NOT EXISTS ev_snapshots (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         pack_id TEXT NOT NULL,
         ev_usd REAL NOT NULL,
         ev_ratio REAL NOT NULL,
         overall_confidence REAL,
         total_obs INTEGER,
         details_json TEXT,
-        created_at TEXT DEFAULT (datetime('now'))
+        created_at TIMESTAMP DEFAULT NOW()
     )''')
 
     c.execute('CREATE INDEX IF NOT EXISTS idx_pulls_pack_time ON pulls(pack_id, tx_time DESC)')
@@ -60,12 +73,14 @@ def save_pull(pack_id, collectible_id, title, fmv_usd, tx_time, image_url):
     """Insert a pull. Returns True if new, False if duplicate."""
     conn = get_conn()
     try:
-        conn.execute(
-            '''INSERT OR IGNORE INTO pulls (pack_id, collectible_id, title, fmv_usd, tx_time, image_url)
-               VALUES (?, ?, ?, ?, ?, ?)''',
+        c = conn.cursor()
+        c.execute(
+            '''INSERT INTO pulls (pack_id, collectible_id, title, fmv_usd, tx_time, image_url)
+               VALUES (%s, %s, %s, %s, %s, %s)
+               ON CONFLICT (pack_id, collectible_id) DO NOTHING''',
             (pack_id, collectible_id, title, fmv_usd, tx_time, image_url)
         )
-        inserted = conn.total_changes > 0
+        inserted = c.rowcount > 0
         conn.commit()
         return inserted
     finally:
@@ -75,9 +90,10 @@ def save_pull(pack_id, collectible_id, title, fmv_usd, tx_time, image_url):
 def save_odds_snapshot(pack_id, price, odds, pack_title=None):
     conn = get_conn()
     try:
-        conn.execute(
+        c = conn.cursor()
+        c.execute(
             '''INSERT INTO odds_snapshots (pack_id, pack_title, price, buckets_json)
-               VALUES (?, ?, ?, ?)''',
+               VALUES (%s, %s, %s, %s)''',
             (pack_id, pack_title, price, json.dumps(odds))
         )
         conn.commit()
@@ -88,9 +104,10 @@ def save_odds_snapshot(pack_id, price, odds, pack_title=None):
 def save_ev_snapshot(pack_id, ev_result):
     conn = get_conn()
     try:
-        conn.execute(
+        c = conn.cursor()
+        c.execute(
             '''INSERT INTO ev_snapshots (pack_id, ev_usd, ev_ratio, overall_confidence, total_obs, details_json)
-               VALUES (?, ?, ?, ?, ?, ?)''',
+               VALUES (%s, %s, %s, %s, %s, %s)''',
             (
                 pack_id,
                 ev_result['ev_usd'],
@@ -108,12 +125,14 @@ def save_ev_snapshot(pack_id, ev_result):
 def get_latest_ev(pack_id):
     conn = get_conn()
     try:
-        row = conn.execute(
-            '''SELECT * FROM ev_snapshots WHERE pack_id=? ORDER BY created_at DESC LIMIT 1''',
+        c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        c.execute(
+            '''SELECT * FROM ev_snapshots WHERE pack_id=%s ORDER BY created_at DESC LIMIT 1''',
             (pack_id,)
-        ).fetchone()
+        )
+        row = c.fetchone()
         if row:
-            d = dict(row)
+            d = _serialize(dict(row))
             if d.get('details_json'):
                 d.update(json.loads(d['details_json']))
                 del d['details_json']
@@ -126,13 +145,15 @@ def get_latest_ev(pack_id):
 def get_ev_history(pack_id, limit=500):
     conn = get_conn()
     try:
-        rows = conn.execute(
+        c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        c.execute(
             '''SELECT ev_ratio, ev_usd, overall_confidence, total_obs, created_at
-               FROM ev_snapshots WHERE pack_id=?
-               ORDER BY created_at DESC LIMIT ?''',
+               FROM ev_snapshots WHERE pack_id=%s
+               ORDER BY created_at DESC LIMIT %s''',
             (pack_id, limit)
-        ).fetchall()
-        return [dict(r) for r in reversed(rows)]
+        )
+        rows = [_serialize(dict(r)) for r in c.fetchall()]
+        return list(reversed(rows))
     finally:
         conn.close()
 
@@ -140,11 +161,12 @@ def get_ev_history(pack_id, limit=500):
 def get_recent_pulls(pack_id, limit=50):
     conn = get_conn()
     try:
-        rows = conn.execute(
-            '''SELECT * FROM pulls WHERE pack_id=? ORDER BY tx_time DESC LIMIT ?''',
+        c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        c.execute(
+            '''SELECT * FROM pulls WHERE pack_id=%s ORDER BY tx_time DESC LIMIT %s''',
             (pack_id, limit)
-        ).fetchall()
-        return [dict(r) for r in rows]
+        )
+        return [_serialize(dict(r)) for r in c.fetchall()]
     finally:
         conn.close()
 
@@ -152,11 +174,12 @@ def get_recent_pulls(pack_id, limit=50):
 def get_pulls_for_calibration(pack_id, limit=2000):
     conn = get_conn()
     try:
-        rows = conn.execute(
-            '''SELECT fmv_usd, tx_time FROM pulls WHERE pack_id=? ORDER BY tx_time DESC LIMIT ?''',
+        c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        c.execute(
+            '''SELECT fmv_usd, tx_time FROM pulls WHERE pack_id=%s ORDER BY tx_time DESC LIMIT %s''',
             (pack_id, limit)
-        ).fetchall()
-        return [dict(r) for r in rows]
+        )
+        return [dict(r) for r in c.fetchall()]
     finally:
         conn.close()
 
@@ -164,11 +187,13 @@ def get_pulls_for_calibration(pack_id, limit=2000):
 def get_latest_odds(pack_id):
     conn = get_conn()
     try:
-        row = conn.execute(
-            '''SELECT * FROM odds_snapshots WHERE pack_id=? ORDER BY created_at DESC LIMIT 1''',
+        c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        c.execute(
+            '''SELECT * FROM odds_snapshots WHERE pack_id=%s ORDER BY created_at DESC LIMIT 1''',
             (pack_id,)
-        ).fetchone()
-        return dict(row) if row else None
+        )
+        row = c.fetchone()
+        return _serialize(dict(row)) if row else None
     finally:
         conn.close()
 
@@ -176,9 +201,8 @@ def get_latest_odds(pack_id):
 def get_pull_count(pack_id):
     conn = get_conn()
     try:
-        row = conn.execute(
-            'SELECT COUNT(*) as cnt FROM pulls WHERE pack_id=?', (pack_id,)
-        ).fetchone()
-        return row['cnt'] if row else 0
+        c = conn.cursor()
+        c.execute('SELECT COUNT(*) FROM pulls WHERE pack_id=%s', (pack_id,))
+        return c.fetchone()[0]
     finally:
         conn.close()

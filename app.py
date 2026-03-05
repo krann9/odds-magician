@@ -6,7 +6,6 @@ Backend: Flask + APScheduler + SQLite
 import json
 import logging
 import os
-import threading
 from datetime import datetime, timezone
 
 import requests
@@ -150,6 +149,10 @@ def poll_all() -> None:
 app = Flask(__name__, static_folder='static', static_url_path='')
 CORS(app)
 
+# On Vercel, __main__ never runs — init DB here on cold start
+if os.environ.get('DATABASE_URL'):
+    db.init_db()
+
 
 @app.route('/')
 def index():
@@ -226,15 +229,16 @@ def get_odds(pack_id):
     })
 
 
-# Manual poll trigger (useful for testing)
+# Poll trigger — called by external cron (cron-job.org) or Poll Now button
+# Runs synchronously so Vercel doesn't freeze the function before completion
 @app.route('/api/poll', methods=['POST'])
 def trigger_poll():
     pack_id = request.json.get('pack_id') if request.json else None
     if pack_id and pack_id in TRACKED_PACKS:
-        threading.Thread(target=poll_pack, args=(pack_id,), daemon=True).start()
+        poll_pack(pack_id)
     else:
-        threading.Thread(target=poll_all, daemon=True).start()
-    return jsonify({'status': 'polling started'})
+        poll_all()
+    return jsonify({'status': 'done'})
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────

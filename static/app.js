@@ -379,13 +379,12 @@ async function triggerPoll() {
   setPollDot('polling');
 
   try {
+    // Poll runs synchronously on the server — response returns when done
     await fetch('/api/poll', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pack_id: currentPack }),
     });
-    // Wait a moment for the worker to finish, then refresh
-    await sleep(2500);
     await refresh();
   } catch (e) {
     console.error('Poll failed', e);
